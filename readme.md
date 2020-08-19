@@ -1,11 +1,21 @@
 # HLD Module  
 
 
+### Description  
+
+Handles migration of auth databases from source to target sql servers.
+
+* Ensures simple recovery
+* Removes user accounts
+* Applies permissions from scm
+* Handles naming matched to Octopus lifecycle stages
+
+
 ### Deployment Targets  
 * `Local` = `{localhost}\{instance_name}`
-* `DEV` = `ETLDEV02\MSSQL2016`
-* `UAT` = `MDFLIVEDB01`
-* `NONPROD` = `MDFPREPDB01`
+* `DEV` = `<SERVERNAME>`
+* `UAT` = `<SERVERNAME>`
+* `NONPROD` = `<SERVERNAME>`
 * `PROD` = _Unknown_
 
 ### How To Use  
@@ -14,7 +24,7 @@
 # To restore HLD and Dashboard onto DEV
 $Databases = @('HLD,HighLevelDashboard').Split(',')
 foreach ($Database in $Databases) {
-    $c = 'TESTMDB01'
+    $c = '<SERVERNAME>'
     $params2 = @{
         SourceServer      = $c
         Database          = $Database
@@ -26,8 +36,8 @@ Invoke-TheGreatMigrator @params2
 
 ```sh
 # To move IdentityService onto local
-$env:localhost = 'VDI-DEV99\SQL2017'
-$e = 'DEVBUILD05'
+$env:localhost = 'x03997'
+$e = '<SERVERNAME>'
 $f = 'IdentityService'
 $params3 = @{
     SourceServer        = $e
@@ -40,7 +50,7 @@ Invoke-TheGreatMigrator @params3
 ```sh
 # To restore Live MDF server onto UAT
 $liveMdf = getLiveMDFDBServer
-$h = 'MyDrFoster'
+$h = 'MyDatabase'
 $params4 = @{
     SourceServer        = $liveMdf
     Database            = $h
@@ -48,5 +58,3 @@ $params4 = @{
 }
 Invoke-TheGreatMigrator @params4
 ```
-
-### Examples  
