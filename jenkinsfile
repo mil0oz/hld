@@ -1,0 +1,123 @@
+pipeline {
+    agent {
+        label 'Slave8||Slave3'
+    }
+
+    environment {
+        MODULE_NAME     = "hld"
+        CODE_VERSION    = defineVersion()
+    }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr:'20'))
+    }
+
+    stages {
+        stage('Clean') {
+            steps {
+                bat 'git clean -xfd';
+            }
+        }
+        stage('Dependancy Install') {
+            steps {
+                PreReqInstall()
+            }
+        }
+        stage('Build Module') {
+            steps{
+                Build()
+            }
+        }
+        stage('Test Module') {
+            when {
+                expression {
+                    GIT_BRANCH != 'master';
+                }
+            }
+            steps {
+                Tests()
+            }
+        }
+        stage('Publish Module') {
+            when {
+              expression {
+                currentBuild.result == null || currentBuild.result == 'SUCCESS';
+                branch 'master'
+              }
+            }
+            steps {
+                PublishModule()
+            }
+        }
+        stage('Tag Git') {
+            when {
+              branch 'master';
+            }
+            steps {
+                GitTag()
+            }
+        }
+    }
+    post {
+        // only triggered when blue or green sign
+       success {
+           deleteDir()
+       }
+    }
+}
+
+def PreReqInstall() {
+    powershell ". .\\CI\\JenkinsInstall.ps1"
+}
+
+def Build() {
+    powershell ". .\\CI\\JenkinsBuild.ps1"
+}
+
+def Tests() {
+    powershell script: '''
+        Invoke-Pester .\\tests\\Help.Tests.ps1
+        Invoke-Pester .\\tests\\Feature.Tests.ps1
+        Invoke-Pester .\\tests\\Project.Tests.ps1
+    '''
+}
+
+def PublishModule() {
+    powershell ". .\\CI\\JenkinsPublish.ps1"
+}
+
+def GitTag() {
+
+    // tag scm
+    powershell script: '''
+        $ErrorActionPreference = 'SilentlyContinue'
+
+        Write-PSFMessage -Level Host -Message "Tag git with version :: ${env:CODE_VERSION}"
+
+        git tag ${env:CODE_VERSION}
+
+        Write-Host "Pushing tags"
+        try {
+            git push origin ${env:CODE_VERSION}
+        } catch {
+            $_ | Out-Null # null output as success is written to stderror :(
+            Continue
+        }
+    '''
+}
+
+def defineVersion() {
+
+    // generate a unique build string to pass through steps as an env var
+    if(env.BRANCH_NAME == 'master') {
+
+        return "1.0.${env:BUILD_NUMBER}"
+
+    }
+
+    else {
+
+        return "0.2.${env:BUILD_NUMBER}-${env:GIT_BRANCH}"
+
+    }
+}
